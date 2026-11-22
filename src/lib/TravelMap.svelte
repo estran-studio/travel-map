@@ -24,6 +24,7 @@
 	let container: HTMLDivElement;
 	let map = $state.raw<maplibregl.Map | null>(null);
 	let appliedFocus: LngLatBoundsLike | null = null;
+	let renderedStory: Story | null = null;
 	let markers = new Map<string, maplibregl.Marker>();
 	let pin: maplibregl.Marker | null = null;
 
@@ -34,18 +35,34 @@
 		return chapter === null ? 0.9 : ['case', ['==', ['get', 'chapter'], chapter], 1, 0.2];
 	}
 
+	function routesData(s: Story): GeoJSON.FeatureCollection {
+		return {
+			type: 'FeatureCollection',
+			features: s.chapters.map((chapter) => ({
+				type: 'Feature',
+				properties: { chapter: chapter.index, color: chapter.color },
+				geometry: { type: 'LineString', coordinates: routeCoordinates(chapter.itinerary) }
+			}))
+		};
+	}
+
+	function photosData(s: Story): GeoJSON.FeatureCollection {
+		return {
+			type: 'FeatureCollection',
+			features: s.photos.map((ref) => ({
+				type: 'Feature',
+				properties: { i: ref.index },
+				geometry: {
+					type: 'Point',
+					coordinates: [ref.photo.position.longitude, ref.photo.position.latitude]
+				}
+			}))
+		};
+	}
+
 	function addLayers(m: maplibregl.Map) {
-		m.addSource('routes', {
-			type: 'geojson',
-			data: {
-				type: 'FeatureCollection',
-				features: story.chapters.map((chapter) => ({
-					type: 'Feature',
-					properties: { chapter: chapter.index, color: chapter.color },
-					geometry: { type: 'LineString', coordinates: routeCoordinates(chapter.itinerary) }
-				}))
-			}
-		});
+		renderedStory = story;
+		m.addSource('routes', { type: 'geojson', data: routesData(story) });
 		const layout = { 'line-join': 'round', 'line-cap': 'round' } as const;
 		m.addLayer({
 			id: 'route-casing',
@@ -77,17 +94,7 @@
 			clusterMaxZoom: CLUSTER_MAX_ZOOM,
 			// Earliest photo of a cluster becomes its cover.
 			clusterProperties: { cover: ['min', ['get', 'i']] },
-			data: {
-				type: 'FeatureCollection',
-				features: story.photos.map((ref) => ({
-					type: 'Feature',
-					properties: { i: ref.index },
-					geometry: {
-						type: 'Point',
-						coordinates: [ref.photo.position.longitude, ref.photo.position.latitude]
-					}
-				}))
-			}
+			data: photosData(story)
 		});
 		// Invisible layer: makes the source load so its clusters can be queried for HTML markers.
 		m.addLayer({
@@ -204,6 +211,18 @@
 		if (!map || target === appliedFocus) return;
 		appliedFocus = target;
 		map.fitBounds(target, { padding: fitPadding(), maxZoom: 10, duration: 1100 });
+	});
+
+	// A new story (e.g. another year selected) replaces the routes and photos; photo indices
+	// change with it, so every marker is rebuilt.
+	$effect(() => {
+		const next = story;
+		if (!map || next === renderedStory) return;
+		renderedStory = next;
+		(map.getSource('routes') as GeoJSONSource).setData(routesData(next));
+		(map.getSource('photos') as GeoJSONSource).setData(photosData(next));
+		for (const marker of markers.values()) marker.remove();
+		markers.clear();
 	});
 
 	$effect(() => {

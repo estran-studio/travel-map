@@ -51,7 +51,6 @@ async function uploadDirectory(sourceDir, cloudinaryFolder) {
       
       let uploadOptions = {
         public_id: publicId,
-        folder: cloudinaryFolder,
         resource_type: 'image',
         // Optimization settings
         quality: 'auto:good',
@@ -104,7 +103,6 @@ async function uploadDirectory(sourceDir, cloudinaryFolder) {
         try {
           const maxCompressionOptions = {
             public_id: publicId,
-            folder: cloudinaryFolder,
             resource_type: 'image',
             quality: '30',
             transformation: [

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { getImageUrl, getTravelIndexUrl, getTravelUrl } from '$lib';
 	import type { TravelIndex, TravelIndexEntry } from '$lib/types/travel-index';
 
@@ -16,6 +17,11 @@
 
 			const data: TravelIndex = await response.json();
 			travels = data.travels || [];
+			// A single travel has nothing to choose from: open it directly.
+			if (travels.length === 1) {
+				await goto(getTravelUrl(travels[0].id), { replaceState: true });
+				return;
+			}
 			isLoading = false;
 		} catch (err) {
 			console.error('Error loading travel index:', err);

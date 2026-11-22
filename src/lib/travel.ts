@@ -12,7 +12,11 @@ export const chapterColors = [
 	'#06a77d',
 	'#e76f51',
 	'#3a86ff',
-	'#c9184a'
+	'#c9184a',
+	'#2a9d8f',
+	'#9d4edd',
+	'#d97706',
+	'#0284c7'
 ];
 
 export interface PhotoRef {
@@ -36,6 +40,8 @@ export interface Day {
 export interface Chapter {
 	index: number;
 	itinerary: Itinerary;
+	/** Year the itinerary started, used to group and filter chapters. */
+	year: number;
 	color: string;
 	days: Day[];
 	photoCount: number;
@@ -47,6 +53,8 @@ export interface Story {
 	days: Day[];
 	photos: PhotoRef[];
 	bounds: LngLatBoundsLike;
+	startDate: string;
+	endDate?: string;
 }
 
 type LngLat = [number, number];
@@ -113,13 +121,26 @@ function boundsOf(points: LngLat[]): LngLatBoundsLike {
 
 const lngLat = (photo: Photo): LngLat => [photo.position.longitude, photo.position.latitude];
 
-/** Flattens a travel into chapters (itineraries) → days → photos, in chronological order. */
-export function buildStory(travel: Travel): Story {
+const startYear = (itinerary: Itinerary) => new Date(itinerary.startDate).getUTCFullYear();
+
+/** Distinct start years of the travel's itineraries, ascending. */
+export function travelYears(travel: Travel): number[] {
+	return [...new Set(travel.itineraries.map(startYear))].sort((a, b) => a - b);
+}
+
+/**
+ * Flattens a travel into chapters (itineraries) → days → photos, in chronological order.
+ * With `year`, only itineraries started that year are kept; colors stay tied to the itinerary.
+ */
+export function buildStory(travel: Travel, year: number | null = null): Story {
 	const photos: PhotoRef[] = [];
 	const days: Day[] = [];
+	const chapters: Chapter[] = [];
 	const allPoints: LngLat[] = [];
 
-	const chapters = travel.itineraries.map((itinerary, chapter): Chapter => {
+	travel.itineraries.forEach((itinerary, position) => {
+		if (year !== null && startYear(itinerary) !== year) return;
+		const chapter = chapters.length;
 		const list = [
 			...(itinerary.photoClusters ?? []).flatMap((cluster) => cluster.photos),
 			...(itinerary.independentPhotos ?? [])
@@ -145,16 +166,25 @@ export function buildStory(travel: Travel): Story {
 		}
 
 		allPoints.push(...routeCoordinates(itinerary), ...list.map(lngLat));
-		return {
+		chapters.push({
 			index: chapter,
 			itinerary,
-			color: chapterColors[chapter % chapterColors.length],
+			year: startYear(itinerary),
+			color: chapterColors[position % chapterColors.length],
 			days: chapterDays,
 			photoCount: list.length
-		};
+		});
 	});
 
-	return { travel, chapters, days, photos, bounds: boundsOf(allPoints) };
+	return {
+		travel,
+		chapters,
+		days,
+		photos,
+		bounds: boundsOf(allPoints),
+		startDate: chapters[0]?.itinerary.startDate ?? travel.startDate,
+		endDate: chapters.at(-1)?.itinerary.endDate ?? travel.endDate
+	};
 }
 
 // Photo timestamps are the camera's wall-clock time stored with a `Z` suffix, so they are

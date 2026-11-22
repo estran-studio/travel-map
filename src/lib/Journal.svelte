@@ -1,10 +1,13 @@
 <script lang="ts">
-	import { getHomeUrl } from './pathUtils';
 	import { getPhotoUrl, type ImageSize } from './imageUtils';
 	import { formatDay, formatRange, type Day, type Story } from './travel';
 
 	interface Props {
 		story: Story;
+		/** Years that can be picked, and the one currently shown (`null` = all). */
+		years: number[];
+		year: number | null;
+		onYear: (year: number | null) => void;
 		activeDay: Day | null;
 		/** Called with the day crossing the reading line, or `null` while the intro is in view. */
 		onActiveDay: (day: Day | null) => void;
@@ -12,7 +15,8 @@
 		onHoverPhoto: (index: number | null) => void;
 	}
 
-	let { story, activeDay, onActiveDay, onOpenPhoto, onHoverPhoto }: Props = $props();
+	let { story, years, year, onYear, activeDay, onActiveDay, onOpenPhoto, onHoverPhoto }: Props =
+		$props();
 
 	let scroller: HTMLDivElement;
 	const { travel, chapters, photos } = story;
@@ -62,23 +66,35 @@
 
 <div bind:this={scroller} class="journal h-full overflow-y-auto overscroll-contain">
 	<header data-section="intro" class="px-6 pt-8 pb-8 lg:pt-10">
-		<a
-			href={getHomeUrl()}
-			class="text-[11px] font-medium tracking-[0.18em] text-zinc-500 uppercase transition-colors hover:text-zinc-200"
-		>
-			← All trips
-		</a>
-		<h1 class="mt-4 text-3xl font-semibold tracking-tight text-zinc-50 lg:text-4xl">
+		<h1 class="text-3xl font-semibold tracking-tight text-zinc-50 lg:text-4xl">
 			{travel.name || 'Travel'}
 		</h1>
 		<p class="mt-2 text-sm text-zinc-400">
-			{formatRange(travel.startDate, travel.endDate)}
+			{formatRange(story.startDate, story.endDate)}
 		</p>
 		<p class="mt-1 text-sm text-zinc-500">
-			{chapters.length} chapters · {story.days.length} days · {photos.length} photos
+			{chapters.length} chapter{chapters.length > 1 ? 's' : ''} · {story.days.length} days ·
+			{photos.length} photos
 		</p>
 		{#if travel.description}
 			<p class="mt-4 text-[15px] leading-relaxed text-zinc-300">{travel.description}</p>
+		{/if}
+		{#if years.length > 1}
+			<div class="mt-5 flex flex-wrap gap-1.5" role="group" aria-label="Year">
+				{#each [null, ...years] as option (option)}
+					<button
+						type="button"
+						class="rounded-full border px-3 py-1 text-xs font-medium tabular-nums transition-colors {year ===
+						option
+							? 'border-white/80 bg-white text-zinc-900'
+							: 'border-white/10 text-zinc-400 hover:border-white/30 hover:text-zinc-100'}"
+						aria-pressed={year === option}
+						onclick={() => onYear(option)}
+					>
+						{option ?? 'All'}
+					</button>
+				{/each}
+			</div>
 		{/if}
 	</header>
 
@@ -101,7 +117,15 @@
 		{/each}
 	</nav>
 
-	{#each chapters as chapter (chapter.index)}
+	{#each chapters as chapter, c (chapter.index)}
+		{#if year === null && chapter.year !== chapters[c - 1]?.year}
+			<div class="flex items-center gap-4 px-6 pt-14">
+				<span class="text-5xl font-semibold tracking-tight text-zinc-700 tabular-nums">
+					{chapter.year}
+				</span>
+				<span class="h-px flex-1 bg-white/8"></span>
+			</div>
+		{/if}
 		<section id="chapter-{chapter.index}" class="scroll-mt-12">
 			<div class="px-6 pt-12 pb-5">
 				<div class="h-1 w-10 rounded-full" style:background={chapter.color}></div>

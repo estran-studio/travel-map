@@ -5,10 +5,15 @@
 	import TravelMap from '$lib/TravelMap.svelte';
 	import Journal from '$lib/Journal.svelte';
 	import PhotoLightbox from '$lib/PhotoLightbox.svelte';
-	import { buildStory, loadTravel, type Day, type Story } from '$lib/travel';
+	import { buildStory, loadTravel, travelYears, type Day } from '$lib/travel';
+	import type { Travel } from '$lib/types/travel-dataset';
 
-	let story = $state.raw<Story | null>(null);
+	let travel = $state.raw<Travel | null>(null);
+	let year = $state<number | null>(null);
 	let error = $state<string | null>(null);
+
+	const story = $derived(travel ? buildStory(travel, year) : null);
+	const years = $derived(travel ? travelYears(travel) : []);
 
 	let activeDay = $state.raw<Day | null>(null);
 	let focus = $state.raw<LngLatBoundsLike>([0, 0, 0, 0]);
@@ -34,11 +39,18 @@
 		journal?.reveal(last);
 	}
 
+	function onYear(next: number | null) {
+		year = next;
+		activeDay = null;
+		hovered = null;
+		clearTimeout(focusTimer);
+		focus = story!.bounds;
+	}
+
 	onMount(async () => {
 		try {
-			const built = buildStory(await loadTravel(page.params.travelId!));
-			focus = built.bounds;
-			story = built;
+			travel = await loadTravel(page.params.travelId!);
+			focus = story!.bounds;
 		} catch (err) {
 			console.error('Error loading travel data:', err);
 			error = err instanceof Error ? err.message : 'Failed to load travel data';
@@ -71,14 +83,19 @@
 		<aside
 			class="min-h-0 flex-1 border-white/5 lg:order-1 lg:w-[440px] lg:flex-none lg:border-r xl:w-[500px]"
 		>
-			<Journal
-				bind:this={journal}
-				{story}
-				{activeDay}
-				{onActiveDay}
-				onOpenPhoto={(i) => (lightbox = i)}
-				onHoverPhoto={(i) => (hovered = i)}
-			/>
+			{#key story}
+				<Journal
+					bind:this={journal}
+					{story}
+					{years}
+					{year}
+					{onYear}
+					{activeDay}
+					{onActiveDay}
+					onOpenPhoto={(i) => (lightbox = i)}
+					onHoverPhoto={(i) => (hovered = i)}
+				/>
+			{/key}
 		</aside>
 	{/if}
 </div>

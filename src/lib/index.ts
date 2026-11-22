@@ -4,16 +4,10 @@
 export { getFullPath, getTravelIndexUrl, getLogoUrl, getFaviconUrl, getTravelUrl, getHomeUrl } from './pathUtils';
 
 // Image utilities
-export {
-	getImageUrl,
-	getResponsiveImageUrls,
-	getImageSrcSet,
-	isCloudinaryUrl,
-	localPathToCloudinaryId
-} from './imageUtils';
+export { getImageUrl, getPhotoUrl, getPhotoSrcSet, isCloudinaryUrl, localPathToCloudinaryId } from './imageUtils';
 
 // Components
 export { default as Header } from './Header.svelte';
 export { default as TravelMap } from './TravelMap.svelte';
-export { default as TimelineSection } from './TimelineSection.svelte';
-export { default as PhotoSidePanel } from './PhotoSidePanel.svelte';
+export { default as Journal } from './Journal.svelte';
+export { default as PhotoLightbox } from './PhotoLightbox.svelte';
